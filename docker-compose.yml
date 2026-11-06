@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: dosth-postgis
+    environment:
+      POSTGRES_DB: dosth_db
+      POSTGRES_USER: dosth_user
+      POSTGRES_PASSWORD: DosthSecurePassword2026!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dosth_user -d dosth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: dosth-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dosth-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/dosth_db
+      SPRING_DATASOURCE_USERNAME: dosth_user
+      SPRING_DATASOURCE_PASSWORD: DosthSecurePassword2026!
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: dosth-admin
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgis_data:
